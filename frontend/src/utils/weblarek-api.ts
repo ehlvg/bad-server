@@ -80,7 +80,7 @@ class Api {
 
     private async ensureCsrfToken() {
         if (this.csrfToken) return
-        const response = await fetch(`${this.baseUrl}/csrf-token`, {
+        const response = await fetch(`${this.baseUrl}/auth/csrf-token`, {
             credentials: 'include',
         })
         if (!response.ok) throw new Error('Не удалось получить CSRF-токен')

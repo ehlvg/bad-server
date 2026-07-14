@@ -3,6 +3,7 @@ import { FilterQuery } from 'mongoose'
 import NotFoundError from '../errors/not-found-error'
 import Order from '../models/order'
 import User, { IUser } from '../models/user'
+import escapeRegExp from '../utils/escapeRegExp'
 
 // TODO: Добавить guard admin
 // eslint-disable-next-line max-len
@@ -92,7 +93,7 @@ export const getCustomers = async (
         }
 
         if (search) {
-            const searchRegex = new RegExp(search as string, 'i')
+            const searchRegex = new RegExp(escapeRegExp(String(search).slice(0, 100)), 'i')
             const orders = await Order.find(
                 {
                     $or: [{ deliveryAddress: searchRegex }],
@@ -110,14 +111,14 @@ export const getCustomers = async (
 
         const sort: { [key: string]: any } = {}
 
-        if (sortField && sortOrder) {
-            sort[sortField as string] = sortOrder === 'desc' ? -1 : 1
-        }
+        const allowedSortFields = new Set(['createdAt', 'lastOrderDate', 'totalAmount', 'orderCount', 'name'])
+        const safeSortField = allowedSortFields.has(String(sortField)) ? String(sortField) : 'createdAt'
+        sort[safeSortField] = sortOrder === 'asc' ? 1 : -1
 
         const options = {
             sort,
             skip: (Number(page) - 1) * Number(limit),
-            limit: Number(limit),
+            limit: Math.min(Math.max(Number(limit) || 10, 1), 100),
         }
 
         const users = await User.find(filters, null, options).populate([
@@ -179,11 +180,13 @@ export const updateCustomer = async (
     next: NextFunction
 ) => {
     try {
+        const { name, phone, roles } = req.body
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
-            req.body,
+            { name, phone, roles },
             {
                 new: true,
+                runValidators: true,
             }
         )
             .orFail(

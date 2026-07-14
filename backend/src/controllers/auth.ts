@@ -110,6 +110,10 @@ const deleteRefreshTokenInUser = async (
         .update(rfTkn)
         .digest('hex')
 
+    if (!user.tokens.some((tokenObj) => tokenObj.token === rTknHash)) {
+        throw new UnauthorizedError('Не валидный токен')
+    }
+
     user.tokens = user.tokens.filter((tokenObj) => tokenObj.token !== rTknHash)
 
     await user.save()
@@ -165,15 +169,13 @@ const refreshAccessToken = async (
 }
 
 const getCurrentUserRoles = async (
-    req: Request,
+    _req: Request,
     res: Response,
     next: NextFunction
 ) => {
     const userId = res.locals.user._id
     try {
-        await User.findById(userId, req.body, {
-            new: true,
-        }).orFail(
+        await User.findById(userId).orFail(
             () =>
                 new NotFoundError(
                     'Пользователь по заданному id отсутствует в базе'
@@ -192,8 +194,10 @@ const updateCurrentUser = async (
 ) => {
     const userId = res.locals.user._id
     try {
-        const updatedUser = await User.findByIdAndUpdate(userId, req.body, {
+        const { name, phone } = req.body
+        const updatedUser = await User.findByIdAndUpdate(userId, { name, phone }, {
             new: true,
+            runValidators: true,
         }).orFail(
             () =>
                 new NotFoundError(

@@ -33,6 +33,7 @@ export type ApiListResponse<Type> = {
 class Api {
     private readonly baseUrl: string
     protected options: RequestInit
+    private csrfToken: string | null = null
 
     constructor(baseUrl: string, options: RequestInit = {}) {
         this.baseUrl = baseUrl
@@ -55,9 +56,21 @@ class Api {
 
     protected async request<T>(endpoint: string, options: RequestInit) {
         try {
+            const method = (options.method || 'GET').toUpperCase()
+            if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+                await this.ensureCsrfToken()
+            }
             const res = await fetch(`${this.baseUrl}${endpoint}`, {
                 ...this.options,
                 ...options,
+                credentials: 'include',
+                headers: {
+                    ...this.options.headers,
+                    ...options.headers,
+                    ...(this.csrfToken && !['GET', 'HEAD', 'OPTIONS'].includes(method)
+                        ? { 'X-CSRF-Token': this.csrfToken }
+                        : {}),
+                },
             })
             return await this.handleResponse<T>(res)
         } catch (error) {
@@ -65,9 +78,19 @@ class Api {
         }
     }
 
+    private async ensureCsrfToken() {
+        if (this.csrfToken) return
+        const response = await fetch(`${this.baseUrl}/csrf-token`, {
+            credentials: 'include',
+        })
+        if (!response.ok) throw new Error('Не удалось получить CSRF-токен')
+        const data = (await response.json()) as { csrfToken: string }
+        this.csrfToken = data.csrfToken
+    }
+
     private refreshToken = () => {
         return this.request<UserResponseToken>('/auth/token', {
-            method: 'GET',
+            method: 'POST',
             credentials: 'include',
         })
     }
@@ -293,7 +316,7 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
 
     logoutUser = () => {
         return this.request<ServerResponse<unknown>>('/auth/logout', {
-            method: 'GET',
+            method: 'POST',
             credentials: 'include',
         })
     }

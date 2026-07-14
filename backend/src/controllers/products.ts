@@ -14,11 +14,12 @@ const getProducts = async (req: Request, res: Response, next: NextFunction) => {
         const { page = 1, limit = 5 } = req.query
         const options = {
             skip: (Number(page) - 1) * Number(limit),
-            limit: Number(limit),
+            limit: Math.min(Math.max(Number(limit) || 5, 1), 100),
         }
         const products = await Product.find({}, null, options)
         const totalProducts = await Product.countDocuments({})
         const totalPages = Math.ceil(totalProducts / Number(limit))
+        res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300')
         return res.send({
             items: products,
             pagination: {

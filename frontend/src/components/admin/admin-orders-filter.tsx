@@ -6,6 +6,7 @@ import { AppRoute } from '../../utils/constants'
 import Filter from '../filter'
 import styles from './admin.module.scss'
 import { ordersFilterFields } from './helpers/ordersFilterFields'
+import { StatusType } from '@types'
 
 export default function AdminFilterOrders() {
     const navigate = useNavigate()
@@ -15,13 +16,24 @@ export default function AdminFilterOrders() {
     const { updateFilter, clearFilters } = useActionCreators(ordersActions)
     const filterOrderOption = useSelector(ordersSelector.selectFilterOption)
 
-    const handleFilter = (filters: Record<string, any>) => {
-        dispatch(updateFilter({ ...filters, status: filters.status.value }))
+    const handleFilter = (filters: Record<string, unknown>) => {
+        const status = filters.status
+        const statusValue = (
+            typeof status === 'object' && status && 'value' in status
+                ? status.value
+                : status
+        ) as StatusType | '' | undefined
+        dispatch(updateFilter({
+            ...filters,
+            status: statusValue,
+        }))
         const queryParams: { [key: string]: string } = {}
         Object.entries(filters).forEach(([key, value]) => {
             if (value) {
                 queryParams[key] =
-                    typeof value === 'object' ? value.value : value.toString()
+                    typeof value === 'object' && value && 'value' in value
+                        ? String(value.value)
+                        : String(value)
             }
         })
         setSearchParams(queryParams)

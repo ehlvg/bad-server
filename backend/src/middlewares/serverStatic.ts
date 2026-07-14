@@ -3,9 +3,16 @@ import fs from 'fs'
 import path from 'path'
 
 export default function serveStatic(baseDir: string) {
+    const resolvedBaseDir = path.resolve(baseDir)
     return (req: Request, res: Response, next: NextFunction) => {
-        // Определяем полный путь к запрашиваемому файлу
-        const filePath = path.join(baseDir, req.path)
+        let decodedPath: string
+        try {
+            decodedPath = decodeURIComponent(req.path)
+        } catch (_error) {
+            return next()
+        }
+        const filePath = path.resolve(resolvedBaseDir, `.${decodedPath}`)
+        if (!filePath.startsWith(`${resolvedBaseDir}${path.sep}`)) return next()
 
         // Проверяем, существует ли файл
         fs.access(filePath, fs.constants.F_OK, (err) => {
@@ -14,9 +21,9 @@ export default function serveStatic(baseDir: string) {
                 return next()
             }
             // Файл существует, отправляем его клиенту
-            return res.sendFile(filePath, (err) => {
-                if (err) {
-                    next(err)
+            return res.sendFile(filePath, { dotfiles: 'deny', maxAge: '1h' }, (sendError) => {
+                if (sendError) {
+                    next(sendError)
                 }
             })
         })

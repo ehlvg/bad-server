@@ -3,7 +3,7 @@ import { NextFunction, Request, Response } from 'express'
 import BadRequestError from '../errors/bad-request-error'
 import ForbiddenError from '../errors/forbidden-error'
 
-const CSRF_COOKIE = 'csrfToken'
+const CSRF_COOKIE = '_csrf'
 const CSRF_HEADER = 'x-csrf-token'
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 

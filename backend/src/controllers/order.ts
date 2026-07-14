@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import { FilterQuery, Error as MongooseError, Types } from 'mongoose'
+import validator from 'validator'
 import BadRequestError from '../errors/bad-request-error'
 import NotFoundError from '../errors/not-found-error'
 import Order, { IOrder } from '../models/order'
@@ -28,6 +29,12 @@ export const getOrders = async (
             orderDateTo,
             search,
         } = req.query
+
+        const normalizedPage = Math.max(Number(page) || 1, 1)
+        const normalizedLimit = Math.min(
+            Math.max(Number(limit) || 10, 1),
+            10
+        )
 
         const filters: FilterQuery<Partial<IOrder>> = {}
 
@@ -112,8 +119,8 @@ export const getOrders = async (
 
         aggregatePipeline.push(
             { $sort: sort },
-            { $skip: (Number(page) - 1) * Number(limit) },
-            { $limit: Math.min(Math.max(Number(limit) || 10, 1), 100) },
+            { $skip: (normalizedPage - 1) * normalizedLimit },
+            { $limit: normalizedLimit },
             {
                 $group: {
                     _id: '$_id',
@@ -129,15 +136,15 @@ export const getOrders = async (
 
         const orders = await Order.aggregate(aggregatePipeline)
         const totalOrders = await Order.countDocuments(filters)
-        const totalPages = Math.ceil(totalOrders / Number(limit))
+        const totalPages = Math.ceil(totalOrders / normalizedLimit)
 
         res.status(200).json({
             orders,
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(page),
-                pageSize: Number(limit),
+                currentPage: normalizedPage,
+                pageSize: normalizedLimit,
             },
         })
     } catch (error) {
@@ -311,7 +318,7 @@ export const createOrder = async (
             payment,
             phone,
             email,
-            comment,
+            comment: comment ? validator.escape(comment) : '',
             customer: userId,
             deliveryAddress: address,
         })

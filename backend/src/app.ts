@@ -22,7 +22,7 @@ app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }))
 app.use(
     rateLimit({
         windowMs: 60 * 1000,
-        limit: 100,
+        limit: 40,
         standardHeaders: 'draft-7',
         legacyHeaders: false,
         message: { message: 'Слишком много запросов, попробуйте позже' },
@@ -33,7 +33,9 @@ app.use(cookieParser())
 const allowedOrigins = (process.env.ORIGIN_ALLOW || 'http://localhost')
     .split(',')
     .map((origin) => origin.trim())
-app.use(cors({ origin: allowedOrigins, credentials: true }))
+const corsOrigin =
+    allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins
+app.use(cors({ origin: corsOrigin, credentials: true }))
 
 app.use(serveStatic(path.join(__dirname, 'public')))
 
@@ -41,7 +43,7 @@ app.use(urlencoded({ extended: false, limit: '20kb' }))
 app.use(json({ limit: '20kb' }))
 app.use(rejectMongoOperators)
 
-app.options('*', cors({ origin: allowedOrigins, credentials: true }))
+app.options('*', cors({ origin: corsOrigin, credentials: true }))
 app.use(routes)
 app.use(errors())
 app.use(errorHandler)
